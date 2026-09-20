@@ -9,8 +9,8 @@ import (
 // zero. Exported so tests and host code can refer to the same
 // constants without re-deriving them.
 const (
-	DefaultMaxRedirects   = 20
-	DefaultTimeout        = 30 * time.Second
+	DefaultMaxRedirects    = 20
+	DefaultTimeout         = 30 * time.Second
 	DefaultMaxResponseSize = 10 * 1024 * 1024 // 10 MiB
 )
 
@@ -37,9 +37,9 @@ type Config struct {
 	AllowedMethods []string
 
 	// DangerouslyAllowFullAccess turns SecureFetch into a pass-through.
-	// All URLs and methods are permitted. DenyPrivateRanges is still
-	// honored. Intended for development sandboxes — do not enable in
-	// production hosts.
+	// All URLs are permitted. AllowedMethods and DenyPrivateRanges are still
+	// honored, so hosts can allow arbitrary public reads without granting
+	// write methods or private-network access.
 	DangerouslyAllowFullAccess bool
 
 	// MaxRedirects caps the redirect chain. The initial request is hop

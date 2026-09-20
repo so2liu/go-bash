@@ -88,13 +88,23 @@ func TestSecureFetch_DangerouslyAllowFullAccess(t *testing.T) {
 		DangerouslyAllowFullAccess: true,
 		AllowedMethods:             []string{"GET"},
 	})
-	req := mustReq(t, "POST", srv.URL+"/anything")
+	req := mustReq(t, "GET", srv.URL+"/anything")
 	resp, err := d.Do(context.Background(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if resp.Status != 200 {
 		t.Errorf("status = %d, want 200", resp.Status)
+	}
+}
+
+func TestSecureFetch_DangerouslyAllowFullAccessStillRestrictsMethods(t *testing.T) {
+	fetch := NewSecureFetch(&Config{DangerouslyAllowFullAccess: true, AllowedMethods: []string{"GET"}})
+	req := mustReq(t, "POST", "https://example.com/resource")
+	_, err := fetch.Do(context.Background(), req)
+	var denied *MethodNotAllowedError
+	if !errors.As(err, &denied) {
+		t.Fatalf("Do error = %v; want *MethodNotAllowedError", err)
 	}
 }
 

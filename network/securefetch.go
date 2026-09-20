@@ -47,8 +47,8 @@ type secureFetch struct {
 // access to sf.cfg) can be a closure.
 func (sf *secureFetch) buildClient() *http.Client {
 	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: sf.dialContext,
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           sf.dialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          10,
 		IdleConnTimeout:       30 * time.Second,
@@ -139,12 +139,10 @@ func (sf *secureFetch) readBody(r io.Reader) ([]byte, error) {
 	return buf, nil
 }
 
-// checkMethod validates the request method against AllowedMethods.
-// DangerouslyAllowFullAccess bypasses the check.
+// checkMethod validates the request method against AllowedMethods. Full URL
+// access deliberately does not widen the allowed method set: hosts commonly
+// need arbitrary public GET/HEAD access without granting write methods.
 func (sf *secureFetch) checkMethod(method, urlStr string) error {
-	if sf.cfg.DangerouslyAllowFullAccess {
-		return nil
-	}
 	if method == "" {
 		method = http.MethodGet
 	}
