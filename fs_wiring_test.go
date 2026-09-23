@@ -232,3 +232,30 @@ func TestFilesNullByteRejected(t *testing.T) {
 		t.Errorf("err = %v; want ErrNullByte", err)
 	}
 }
+
+// TestCdAndAccessTestsUseVFS guards the access checks behind cd and
+// -r/-w/-x: they must consult the VFS, not access(2) on the host disk,
+// where paths like /work/sub do not exist.
+func TestCdAndAccessTestsUseVFS(t *testing.T) {
+	b, err := gobash.New(gobash.BashOptions{
+		Cwd: "/work",
+		Files: map[string]gbfs.FileInit{
+			"/work/sub":       {Dir: true},
+			"/work/data.txt":  {Content: []byte("x"), Mode: 0o644},
+			"/work/locked.sh": {Content: []byte("x"), Mode: 0o400},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := b.Exec(context.Background(), `cd sub && pwd && cd /work && pwd
+[ -r data.txt ] && echo r; [ -w data.txt ] && echo w; [ -x data.txt ] || echo not-x
+[ -w locked.sh ] || echo locked-not-w`, gobash.ExecOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "/work/sub\n/work\nr\nw\nnot-x\nlocked-not-w\n"
+	if res.Stdout != want || res.ExitCode != 0 {
+		t.Fatalf("stdout = %q, exit = %d, stderr = %q; want %q", res.Stdout, res.ExitCode, res.Stderr, want)
+	}
+}

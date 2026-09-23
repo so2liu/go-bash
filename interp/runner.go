@@ -207,6 +207,7 @@ func BuildRunner(ctx context.Context, cfg Config) (*mvinterp.Runner, error) {
 		mvinterp.OpenHandler(openHandler(cfg.FS)),
 		mvinterp.StatHandler(statHandler(cfg.FS)),
 		mvinterp.ReadDirHandler2(readDirHandler(cfg.FS, cfg.ReadDirHook)),
+		mvinterp.AccessHandler(accessHandler(cfg.FS)),
 	}
 	if cfg.CallHandler != nil {
 		opts = append(opts, mvinterp.CallHandler(cfg.CallHandler))
@@ -400,6 +401,26 @@ func statHandler(fs gbfs.FileSystem) mvinterp.StatHandlerFunc {
 		}
 		fi, err := fs.Lstat(resolved)
 		return fi, ensurePathError(err, "lstat", name)
+	}
+}
+
+// accessHandler answers cd and the -r/-w/-x tests from the VFS. The
+// default handler calls access(2) on the host disk, where VFS paths such
+// as /files do not exist, so every cd failed with "permission denied".
+// The sandbox has a single virtual user, so the owner bits decide.
+func accessHandler(fs gbfs.FileSystem) mvinterp.AccessHandlerFunc {
+	return func(ctx context.Context, path string, mode mvinterp.AccessMode) error {
+		fi, err := fs.Stat(gbfs.Resolve(HandlerDir(ctx), path))
+		if err != nil {
+			return ensurePathError(err, "access", path)
+		}
+		perm := fi.Mode().Perm()
+		if (mode&mvinterp.AccessRead != 0 && perm&0o400 == 0) ||
+			(mode&mvinterp.AccessWrite != 0 && perm&0o200 == 0) ||
+			(mode&mvinterp.AccessExec != 0 && perm&0o100 == 0) {
+			return &os.PathError{Op: "access", Path: path, Err: os.ErrPermission}
+		}
+		return nil
 	}
 }
 
